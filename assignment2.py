@@ -57,10 +57,6 @@ class PrecipitationAnalysis:
         self.lon_max = city_lon + 2.5
         
         print(f"Analyzing precipitation for {city_name}")
-        print(f"City coordinates: {city_lat:.2f}°N, {city_lon:.2f}°E")
-        print(f"Analysis box: {self.lat_min:.1f}°-{self.lat_max:.1f}°N, "
-              f"{self.lon_min:.1f}°-{self.lon_max:.1f}°E")
-        
 
     def download_and_load_data(self):
         """
@@ -107,16 +103,10 @@ class PrecipitationAnalysis:
         print("Dataset coordinates:", list(ds.coords.keys()))
         print("Dataset variables:", list(ds.data_vars.keys()))
         
-        # Check coordinate ranges
-        print(f"Latitude range: {ds.latitude.min().values:.2f} to {ds.latitude.max().values:.2f}")
-        print(f"Longitude range: {ds.longitude.min().values:.2f} to {ds.longitude.max().values:.2f}")
         
-        # Determine the time dimension name
-        time_dim = None
-        for dim in ['valid_time']:
-            if dim in ds.dims:
-                time_dim = dim
-                break
+        # Time dimension calrification
+        time_dim = 'valid_time'
+
     
         # Check if longitude needs conversion (0-360 to -180-180)
         lon_min, lon_max = ds.longitude.min().values, ds.longitude.max().values
@@ -164,20 +154,19 @@ class PrecipitationAnalysis:
         city_precip = precip_mm.mean(dim=['latitude', 'longitude'])
         
         # Filter for the analysis period
-        city_precip = city_precip.sel(**{time_dim: slice(f"{self.start_year}-01", f"{self.end_year}-12")})
+        city_precip = city_precip.sel(valid_time=slice(f"{self.start_year}-01", f"{self.end_year}-12"))
         
         print(f"After time filtering: {len(city_precip)} time steps")
         print(f"Precipitation stats: mean={city_precip.mean().values:.3f}, std={city_precip.std().values:.3f} mm/month")
         
         # Convert monthly to daily
-        days_per_month = getattr(city_precip, time_dim).dt.days_in_month
+        days_per_month = city_precip.valid_time.dt.days_in_month
         daily_equiv = city_precip / days_per_month
         
         print(f"Daily equivalent stats: mean={daily_equiv.mean().values:.3f}, std={daily_equiv.std().values:.3f} mm/day")
         
         self.city_precip = city_precip
         self.daily_equiv = daily_equiv
-        self.time_dim = time_dim  # Store for later use
         
         return city_precip
     
@@ -192,7 +181,7 @@ class PrecipitationAnalysis:
         """
         
         # Check for valid data
-        valid_data = self.daily_equiv.dropna(self.time_dim)
+        valid_data = self.daily_equiv.dropna('valid_time')
         
         if len(valid_data) == 0:
             raise ValueError("No valid data points found!!")
