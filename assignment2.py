@@ -118,8 +118,6 @@ class PrecipitationAnalysis:
                 time_dim = dim
                 break
     
-
-        
         # Check if longitude needs conversion (0-360 to -180-180)
         lon_min, lon_max = ds.longitude.min().values, ds.longitude.max().values
         if lon_min >= 0 and lon_max > 180:
@@ -171,7 +169,7 @@ class PrecipitationAnalysis:
         print(f"After time filtering: {len(city_precip)} time steps")
         print(f"Precipitation stats: mean={city_precip.mean().values:.3f}, std={city_precip.std().values:.3f} mm/month")
         
-        # Convert monthly to daily equivalent (approximate)
+        # Convert monthly to daily
         days_per_month = getattr(city_precip, time_dim).dt.days_in_month
         daily_equiv = city_precip / days_per_month
         
@@ -239,11 +237,9 @@ class PrecipitationAnalysis:
                      f'({self.start_year}-{self.end_year})')
         ax.grid(True, alpha=0.3)
         ax.legend()
-        
-        plt.tight_layout()
+
         plt.savefig(f'{self.city_name.replace(" ", "_")}_precipitation_CDF.png', 
                    dpi=300, bbox_inches='tight')
-        print(f"CDF plot saved as: {self.city_name.replace(' ', '_')}_precipitation_CDF.png")
         plt.close()  
     
     def create_composite_maps(self):
@@ -261,14 +257,9 @@ class PrecipitationAnalysis:
         extreme_times = getattr(self.city_precip, time_dim).where(self.extreme_indices, drop=True)
         
         # Select extreme days from the full dataset
-        try:
-            extreme_data = self.ds_climo.sel(**{time_dim: extreme_times})
-            composite_mean = extreme_data['tp'].mean(dim=time_dim) * 1000  # Convert to mm
-        except Exception as e:
-            print("Trying alternative approach with nearest neighbor selection")
-            extreme_data = self.ds_climo.sel(**{time_dim: extreme_times, 'method': 'nearest'})
-            composite_mean = extreme_data['tp'].mean(dim=time_dim) * 1000  # Convert to mm
-        
+        extreme_data = self.ds_climo.sel(**{time_dim: extreme_times})
+        composite_mean = extreme_data['tp'].mean(dim=time_dim) * 1000  # Convert to mm
+
         # Calculate anomaly
         anomaly = composite_mean - climo_mean
         
@@ -338,10 +329,8 @@ class PrecipitationAnalysis:
         gl2.top_labels = False
         gl2.right_labels = False
         
-        plt.tight_layout()
         plt.savefig(f'{self.city_name.replace(" ", "_")}_composite_maps.png', 
                    dpi=300, bbox_inches='tight')
-        print(f"Composite maps saved as: {self.city_name.replace(' ', '_')}_composite_maps.png")
         plt.close() 
     
     
