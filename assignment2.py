@@ -279,21 +279,27 @@ class PrecipitationAnalysis:
         ax1.add_feature(cfeature.STATES)
         ax1.add_feature(cfeature.OCEAN, alpha=0.5)
         ax1.add_feature(cfeature.LAND, alpha=0.5)
-        
-        # Plot composite mean
-        im1 = composite_mean.plot(
+
+        # Plot composite mean 
+        composite_plot = composite_mean.where(composite_mean > 0)  # Mask zero/negative values
+
+        vmin_comp = np.nanpercentile(composite_plot.values, 10)
+        vmax_comp = np.nanpercentile(composite_plot.values, 95)
+
+        im1 = composite_plot.plot(
             ax=ax1, transform=ccrs.PlateCarree(),
             cmap='Blues', extend='max',
+            vmin=vmin_comp, vmax=vmax_comp,
             cbar_kwargs={'label': 'Precipitation (mm/month)', 'shrink': 0.8}
         )
-        
+                
         # Mark city location
         ax1.plot(self.city_lon, self.city_lat, 'ro', markersize=6, 
                 transform=ccrs.PlateCarree(), label=self.city_name)
         
         ax1.set_title(f'Composite Mean Precipitation on Extreme Days\n'
                      f'{self.city_name} 95th Percentile Events', fontsize=14)
-        ax1.legend()
+        ax1.legend(loc='upper right')
         
         # Add gridlines
         gl1 = ax1.gridlines(draw_labels=True, alpha=0.5)
@@ -309,10 +315,14 @@ class PrecipitationAnalysis:
         ax2.add_feature(cfeature.OCEAN, alpha=0.5)
         ax2.add_feature(cfeature.LAND, alpha=0.5)
         
+
         # Plot anomaly
+        anom_max = max(abs(anomaly.min().values), abs(anomaly.max().values))
+
         im2 = anomaly.plot(
             ax=ax2, transform=ccrs.PlateCarree(),
             cmap='RdBu_r', center=0, extend='both',
+            vmin=-anom_max, vmax=anom_max,
             cbar_kwargs={'label': 'Precipitation Anomaly (mm/month)', 'shrink': 0.8}
         )
         
