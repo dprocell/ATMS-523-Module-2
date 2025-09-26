@@ -101,7 +101,6 @@ class PrecipitationAnalysis:
         # Check the actual dimensions and coordinates
         print("Dataset dimensions:", list(ds.dims.keys()))
         print("Dataset coordinates:", list(ds.coords.keys()))
-        print("Dataset variables:", list(ds.data_vars.keys()))
     
         # Check if longitude needs conversion (0-360 to -180-180)
         lon_min, lon_max = ds.longitude.min().values, ds.longitude.max().values
@@ -177,9 +176,6 @@ class PrecipitationAnalysis:
         
         # Check for valid data
         valid_data = self.daily_equiv.dropna('valid_time')
-        
-        # if len(valid_data) == 0:
-        #     raise ValueError("No valid data points found!!")
         
         # Calculate 95th percentile 
         p95 = valid_data.quantile(0.95)
