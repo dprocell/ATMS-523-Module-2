@@ -56,7 +56,7 @@ class PrecipitationAnalysis:
         self.lon_min = city_lon - 2.5
         self.lon_max = city_lon + 2.5
         
-        print("Analyzing precipitation for ", city_name)
+        print("Precipitation analysis for ", city_name)
 
     def download_and_load_data(self):
         """
@@ -70,7 +70,7 @@ class PrecipitationAnalysis:
 
         # Load climatology data 
         try:
-            ds_climo = xr.open_dataset('ERA-5_total_precipitation_monthly-1981-2020.nc', 
+            ds_climo = xr.open_dataset('ERA-5_total_precipitation_monthly-1981-2020.nc', # make it quicker if file is already downloaded
                                      engine='h5netcdf')
         except FileNotFoundError:
             ds_climo = xr.open_dataset(
@@ -98,7 +98,7 @@ class PrecipitationAnalysis:
             Area averaged precipitation time series
         """
         
-        # Check the actual dimensions and coordinates
+        # Print dimensions and coordinates
         print("Dataset dimensions:", list(ds.dims.keys()))
         print("Dataset coordinates:", list(ds.coords.keys()))
     
@@ -114,14 +114,14 @@ class PrecipitationAnalysis:
         if city_lon_adj < 0 and ds.longitude.min().values >= 0:
             city_lon_adj = self.city_lon + 360
         
-        # Update box coordinates
+        # Update box coordinates to 5x5
         lat_min = self.city_lat - 2.5
         lat_max = self.city_lat + 2.5
         lon_min = city_lon_adj - 2.5
         lon_max = city_lon_adj + 2.5
         
         # Select the 5x5 degree box with proper coordinate handling
-        if ds.latitude[0] > ds.latitude[-1]:  # Decreasing latitude (ERA5 style)
+        if ds.latitude[0] > ds.latitude[-1]:  # Decreasing latitude
             city_data = ds.sel(
                 latitude=slice(lat_max, lat_min),
                 longitude=slice(lon_min, lon_max)
@@ -137,7 +137,6 @@ class PrecipitationAnalysis:
         print("Selected lon range:", city_data.longitude.min().values, "to", city_data.longitude.max().values)
         
         # Calculate area weighted mean
-        # Convert precipitation from m to mm (multiply by 1000)
         precip_mm = city_data['tp'] * 1000
         
         # Check for NaN values before spatial averaging
@@ -177,11 +176,9 @@ class PrecipitationAnalysis:
         # Check for valid data
         valid_data = self.daily_equiv.dropna('valid_time')
         
-        # Calculate 95th percentile 
+        # Identify extreme days above 95th percentile
         p95 = valid_data.quantile(0.95)
         self.p95_value = float(p95.values)
-        
-        # Identify extreme days (above 95th percentile)
         extreme_days = self.daily_equiv > p95
         self.extreme_indices = extreme_days
         
@@ -194,7 +191,8 @@ class PrecipitationAnalysis:
 
     def plot_cumulative_distribution(self):
         """
-        Plot cumulative distribution function of daily precipitation.
+        Plot cumulative distribution function of daily precipitation
+        and highlight 95% percent precipitation (part 2).
         """
         
         fig, ax = plt.subplots(1, 1, figsize=(10, 6))
@@ -204,10 +202,8 @@ class PrecipitationAnalysis:
         precip_sorted = np.sort(precip_values)
         p = np.arange(1, len(precip_sorted) + 1) / len(precip_sorted)
         
-        # Plot CDF
+        # Plot CDF for 95% precipitation values
         ax.plot(precip_sorted, p * 100, 'b-', linewidth=2, label='Daily Precipitation CDF')
-        
-        # Mark 95th percentile
         ax.axvline(self.p95_value, color='red', linestyle='--', linewidth=2, 
            label='95th percentile (' + str(round(self.p95_value, 2)) + ' mm/day)')
         
@@ -225,7 +221,7 @@ class PrecipitationAnalysis:
     
     def create_composite_maps(self):
         """
-        Create composite mean and anomaly maps for extreme precipitation days.
+        Create composite mean and anomaly maps for extreme precipitation days (part 3).
         """
         
         # Calculate climatology
@@ -234,15 +230,13 @@ class PrecipitationAnalysis:
         
         # Calculate composite mean for extreme days
         extreme_times = self.city_precip.valid_time.where(self.extreme_indices, drop=True)
-
-        # Select extreme days
         extreme_data = self.ds_climo.sel(valid_time=extreme_times)
         composite_mean = extreme_data['tp'].mean(dim='valid_time') * 1000
 
         # Calculate anomaly
         anomaly = composite_mean - climo_mean
         
-        # Define map extent (40x40 degrees around city)
+        # Define map extent (40x40 degrees around the city)
         map_extent = [
             self.city_lon - 20, self.city_lon + 20,
             self.city_lat - 20, self.city_lat + 20
@@ -259,7 +253,6 @@ class PrecipitationAnalysis:
         ax1.add_feature(cfeature.OCEAN, alpha=0.5)
         ax1.add_feature(cfeature.LAND, alpha=0.5)
 
-        # Plot composite mean 
         composite_plot = composite_mean.where(composite_mean > 0)  # Mask zero/negative values
 
         vmin_comp = np.nanpercentile(composite_plot.values, 10)
@@ -271,14 +264,12 @@ class PrecipitationAnalysis:
             vmin=vmin_comp, vmax=vmax_comp,
             cbar_kwargs={'label': 'Precipitation (mm/month)', 'shrink': 0.8}
         )
-                
-        # Mark city location
+
         ax1.plot(self.city_lon, self.city_lat, 'ro', markersize=6, 
                 transform=ccrs.PlateCarree(), label=self.city_name)
         
         ax1.set_title('Composite Mean Precipitation on Extreme Days\n' + 
                       self.city_name + ' 95th Percentile Events', fontsize=14)
-        # Add gridlines
         gl1 = ax1.gridlines(draw_labels=True, alpha=0.5)
         gl1.top_labels = False
         gl1.right_labels = False
@@ -292,7 +283,6 @@ class PrecipitationAnalysis:
         ax2.add_feature(cfeature.OCEAN, alpha=0.5)
         ax2.add_feature(cfeature.LAND, alpha=0.5)
         
-        # Plot anomaly
         anom_max = 4
 
         im2 = anomaly.plot(
@@ -302,7 +292,6 @@ class PrecipitationAnalysis:
             cbar_kwargs={'label': 'Precipitation Anomaly (mm/month)', 'shrink': 0.8}
         )
         
-        # Mark city location
         ax2.plot(self.city_lon, self.city_lat, 'ro', markersize=6, 
                 transform=ccrs.PlateCarree(), label=self.city_name)
         
@@ -310,7 +299,6 @@ class PrecipitationAnalysis:
                       str(self.start_year) + '-' + str(self.end_year) + ' Climatology)', fontsize=14)
         ax2.legend()
         
-        # Add gridlines
         gl2 = ax2.gridlines(draw_labels=True, alpha=0.5)
         gl2.top_labels = False
         gl2.right_labels = False
@@ -328,8 +316,7 @@ class PrecipitationAnalysis:
         # Save city precipitation time series
         output_filename = self.city_name.replace(" ", "_") + '_precipitation_data.nc'
         self.city_precip.to_netcdf(output_filename)
-        
-        # Save statistics
+
         stats_dict = {
             'city': self.city_name,
             'latitude': self.city_lat,
@@ -376,7 +363,6 @@ if __name__ == "__main__":
     city_lat = 41.8781
     city_lon = -87.6298 
     
-    # Initialize analysis
     analyzer = PrecipitationAnalysis(
         city_name=city_name,
         city_lat=city_lat,
@@ -385,7 +371,6 @@ if __name__ == "__main__":
         end_year=2020
     )
     
-    # Run analysis
     analyzer.run_analysis()
 
 """
