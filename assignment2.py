@@ -102,11 +102,6 @@ class PrecipitationAnalysis:
         print("Dataset dimensions:", list(ds.dims.keys()))
         print("Dataset coordinates:", list(ds.coords.keys()))
         print("Dataset variables:", list(ds.data_vars.keys()))
-        
-        
-        # Time dimension calrification
-        time_dim = 'valid_time'
-
     
         # Check if longitude needs conversion (0-360 to -180-180)
         lon_min, lon_max = ds.longitude.min().values, ds.longitude.max().values
@@ -183,8 +178,8 @@ class PrecipitationAnalysis:
         # Check for valid data
         valid_data = self.daily_equiv.dropna('valid_time')
         
-        if len(valid_data) == 0:
-            raise ValueError("No valid data points found!!")
+        # if len(valid_data) == 0:
+        #     raise ValueError("No valid data points found!!")
         
         # Calculate 95th percentile 
         p95 = valid_data.quantile(0.95)
@@ -235,19 +230,17 @@ class PrecipitationAnalysis:
         """
         Create composite mean and anomaly maps for extreme precipitation days.
         """
-
-        time_dim = getattr(self, 'time_dim', 'valid_time')
         
         # Calculate climatology
-        climo_data = self.ds_climo.sel(**{time_dim: slice(f'{self.start_year}-01', f'{self.end_year}-12')})
-        climo_mean = climo_data['tp'].mean(dim=time_dim) * 1000  # Convert to mm
+        climo_data = self.ds_climo.sel(valid_time=slice(f'{self.start_year}-01', f'{self.end_year}-12'))
+        climo_mean = climo_data['tp'].mean(dim='valid_time') * 1000
         
         # Calculate composite mean for extreme days
-        extreme_times = getattr(self.city_precip, time_dim).where(self.extreme_indices, drop=True)
-        
-        # Select extreme days from the full dataset
-        extreme_data = self.ds_climo.sel(**{time_dim: extreme_times})
-        composite_mean = extreme_data['tp'].mean(dim=time_dim) * 1000  # Convert to mm
+        extreme_times = self.city_precip.valid_time.where(self.extreme_indices, drop=True)
+
+        # Select extreme days
+        extreme_data = self.ds_climo.sel(valid_time=extreme_times)
+        composite_mean = extreme_data['tp'].mean(dim='valid_time') * 1000
 
         # Calculate anomaly
         anomaly = composite_mean - climo_mean
@@ -288,7 +281,6 @@ class PrecipitationAnalysis:
         
         ax1.set_title(f'Composite Mean Precipitation on Extreme Days\n'
                      f'{self.city_name} 95th Percentile Events', fontsize=14)
-        ax1.legend(loc='upper right')
         
         # Add gridlines
         gl1 = ax1.gridlines(draw_labels=True, alpha=0.5)
@@ -304,7 +296,6 @@ class PrecipitationAnalysis:
         ax2.add_feature(cfeature.OCEAN, alpha=0.5)
         ax2.add_feature(cfeature.LAND, alpha=0.5)
         
-
         # Plot anomaly
         anom_max = max(abs(anomaly.min().values), abs(anomaly.max().values))
 
@@ -320,7 +311,7 @@ class PrecipitationAnalysis:
                 transform=ccrs.PlateCarree(), label=self.city_name)
         
         ax2.set_title(f'Precipitation Anomaly on Extreme Days\n'
-                     f'(Composite - 1990-2020 Climatology)', fontsize=14)
+                    f'(Composite - {self.start_year}-{self.end_year} Climatology)', fontsize=14)
         ax2.legend()
         
         # Add gridlines
@@ -359,7 +350,7 @@ class PrecipitationAnalysis:
     
     def run_analysis(self):
         """
-        Run the complete analysis workflow.
+        Run the complete analysis for assignment 2.
         """
         # Step 1: Load data
         ds = self.download_and_load_data()
@@ -370,22 +361,23 @@ class PrecipitationAnalysis:
         # Step 3: Calculate percentiles
         self.calculate_percentiles_and_extremes()
         
-        # Step 4: Plot CDF
+        # Step 4: Plot CDF (question 2)
         self.plot_cumulative_distribution()
         
-        # Step 5: Create composite maps
+        # Step 5: Create composite maps (question 3)
         self.create_composite_maps()
         
         # Step 6: Save results
         self.save_results()
         
 
-# Example usage for Chicago, IL
+# Main function
+# Example using Chicago, IL
 if __name__ == "__main__":
     # Define city coordinates
     city_name = "Chicago"
     city_lat = 41.8781
-    city_lon = -87.6298  # Western longitude is negative
+    city_lon = -87.6298 
     
     # Initialize analysis
     analyzer = PrecipitationAnalysis(
@@ -396,7 +388,7 @@ if __name__ == "__main__":
         end_year=2020
     )
     
-    # Run the complete analysis
+    # Run analysis
     analyzer.run_analysis()
 
 """
@@ -408,5 +400,5 @@ DOI: 10.1002/qj.3803
 
 ERA5 hourly data on single levels from 1940 to present. (2023). 
 Copernicus Climate Change Service (C3S) Climate Data Store (CDS). 
-DOI: 10.24381/cds.adbb2d47
+DOI: 10.24381/cds.adbb2d47 
 """
