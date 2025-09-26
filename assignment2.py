@@ -56,7 +56,7 @@ class PrecipitationAnalysis:
         self.lon_min = city_lon - 2.5
         self.lon_max = city_lon + 2.5
         
-        print(f"Analyzing precipitation for {city_name}")
+        print("Analyzing precipitation for ", city_name)
 
     def download_and_load_data(self):
         """
@@ -95,7 +95,7 @@ class PrecipitationAnalysis:
         Returns:
         --------
         xarray.DataArray
-            Area-averaged precipitation time series
+            Area averaged precipitation time series
         """
         
         # Check the actual dimensions and coordinates
@@ -132,17 +132,17 @@ class PrecipitationAnalysis:
                 longitude=slice(lon_min, lon_max)
             )
         
-        print(f"Selected data shape: {city_data['tp'].shape}")
-        print(f"Selected lat range: {city_data.latitude.min().values:.2f} to {city_data.latitude.max().values:.2f}")
-        print(f"Selected lon range: {city_data.longitude.min().values:.2f} to {city_data.longitude.max().values:.2f}")
+        print("Selected data shape:", city_data['tp'].shape)
+        print("Selected lat range:", city_data.latitude.min().values, "to", city_data.latitude.max().values)
+        print("Selected lon range:", city_data.longitude.min().values, "to", city_data.longitude.max().values)
         
-        # Calculate area-weighted mean
+        # Calculate area weighted mean
         # Convert precipitation from m to mm (multiply by 1000)
         precip_mm = city_data['tp'] * 1000
         
         # Check for NaN values before spatial averaging
-        print(f"NaN values in precipitation data: {precip_mm.isnull().sum().values}")
-        print(f"Data range: {precip_mm.min().values:.4f} to {precip_mm.max().values:.4f} mm")
+        print("NaN values in precipitation data:", precip_mm.isnull().sum().values)
+        print("Data range:", precip_mm.min().values, "to", precip_mm.max().values, "mm")
         
         # Calculate spatial mean over the 5x5 box
         city_precip = precip_mm.mean(dim=['latitude', 'longitude'])
@@ -150,14 +150,14 @@ class PrecipitationAnalysis:
         # Filter for the analysis period
         city_precip = city_precip.sel(valid_time=slice(f"{self.start_year}-01", f"{self.end_year}-12"))
         
-        print(f"After time filtering: {len(city_precip)} time steps")
-        print(f"Precipitation stats: mean={city_precip.mean().values:.3f}, std={city_precip.std().values:.3f} mm/month")
+        print("After time filtering:", len(city_precip), "time steps")
+        print("Precipitation stats: mean = ", city_precip.mean().values, "std = ", city_precip.std().values, "mm/month")
         
         # Convert monthly to daily
         days_per_month = city_precip.valid_time.dt.days_in_month
         daily_equiv = city_precip / days_per_month
         
-        print(f"Daily equivalent stats: mean={daily_equiv.mean().values:.3f}, std={daily_equiv.std().values:.3f} mm/day")
+        print("Daily equivalent stats: mean = ", daily_equiv.mean().values, "std = ", daily_equiv.std().values, "mm/day")
         
         self.city_precip = city_precip
         self.daily_equiv = daily_equiv
@@ -186,8 +186,8 @@ class PrecipitationAnalysis:
         self.extreme_indices = extreme_days
         
         n_extreme = extreme_days.sum().values
-        print(f"95th percentile value: {self.p95_value:.2f} mm/day")
-        print(f"Number of extreme events: {n_extreme}")
+        print("95th percentile value:", self.p95_value, "mm/day")
+        print("Number of extreme events:", n_extreme)
 
         return self.p95_value, extreme_days
     
@@ -209,17 +209,18 @@ class PrecipitationAnalysis:
         
         # Mark 95th percentile
         ax.axvline(self.p95_value, color='red', linestyle='--', linewidth=2, 
-                   label=f'95th percentile ({self.p95_value:.2f} mm/day)')
+           label='95th percentile (' + str(round(self.p95_value, 2)) + ' mm/day)')
         
         ax.set_xlabel('Daily Precipitation (mm/day)')
         ax.set_ylabel('Cumulative Probability (%)')
-        ax.set_title(f'Cumulative Distribution of Daily Precipitation\n{self.city_name} '
-                     f'({self.start_year}-{self.end_year})')
+        ax.set_title('Cumulative Distribution of Daily Precipitation\n' + self.city_name + 
+                 ' (' + str(self.start_year) + '-' + str(self.end_year) + ')')
+
         ax.grid(True, alpha=0.3)
         ax.legend()
 
-        plt.savefig(f'{self.city_name.replace(" ", "_")}_precipitation_CDF.png', 
-                   dpi=300, bbox_inches='tight')
+        plt.savefig(self.city_name.replace(" ", "_") + '_precipitation_CDF.png', 
+                dpi=300, bbox_inches='tight')
         plt.close()  
     
     def create_composite_maps(self):
@@ -228,7 +229,7 @@ class PrecipitationAnalysis:
         """
         
         # Calculate climatology
-        climo_data = self.ds_climo.sel(valid_time=slice(f'{self.start_year}-01', f'{self.end_year}-12'))
+        climo_data = self.ds_climo.sel(valid_time=slice(str(self.start_year) + '-01', str(self.end_year) + '-12'))
         climo_mean = climo_data['tp'].mean(dim='valid_time') * 1000
         
         # Calculate composite mean for extreme days
@@ -275,9 +276,8 @@ class PrecipitationAnalysis:
         ax1.plot(self.city_lon, self.city_lat, 'ro', markersize=6, 
                 transform=ccrs.PlateCarree(), label=self.city_name)
         
-        ax1.set_title(f'Composite Mean Precipitation on Extreme Days\n'
-                     f'{self.city_name} 95th Percentile Events', fontsize=14)
-        
+        ax1.set_title('Composite Mean Precipitation on Extreme Days\n' + 
+                      self.city_name + ' 95th Percentile Events', fontsize=14)
         # Add gridlines
         gl1 = ax1.gridlines(draw_labels=True, alpha=0.5)
         gl1.top_labels = False
@@ -293,11 +293,11 @@ class PrecipitationAnalysis:
         ax2.add_feature(cfeature.LAND, alpha=0.5)
         
         # Plot anomaly
-        anom_max = max(abs(anomaly.min().values), abs(anomaly.max().values))
+        anom_max = 4
 
         im2 = anomaly.plot(
             ax=ax2, transform=ccrs.PlateCarree(),
-            cmap='RdBu_r', center=0, extend='both',
+            cmap='coolwarm', center=0,
             vmin=-anom_max, vmax=anom_max,
             cbar_kwargs={'label': 'Precipitation Anomaly (mm/month)', 'shrink': 0.8}
         )
@@ -306,8 +306,8 @@ class PrecipitationAnalysis:
         ax2.plot(self.city_lon, self.city_lat, 'ro', markersize=6, 
                 transform=ccrs.PlateCarree(), label=self.city_name)
         
-        ax2.set_title(f'Precipitation Anomaly on Extreme Days\n'
-                    f'(Composite - {self.start_year}-{self.end_year} Climatology)', fontsize=14)
+        ax2.set_title('Precipitation Anomaly on Extreme Days\n(Composite - ' + 
+                      str(self.start_year) + '-' + str(self.end_year) + ' Climatology)', fontsize=14)
         ax2.legend()
         
         # Add gridlines
@@ -315,8 +315,8 @@ class PrecipitationAnalysis:
         gl2.top_labels = False
         gl2.right_labels = False
         
-        plt.savefig(f'{self.city_name.replace(" ", "_")}_composite_maps.png', 
-                   dpi=300, bbox_inches='tight')
+        plt.savefig(self.city_name.replace(" ", "_") + '_composite_maps.png', 
+                dpi=300, bbox_inches='tight')
         plt.close() 
     
     
@@ -326,7 +326,7 @@ class PrecipitationAnalysis:
         """
 
         # Save city precipitation time series
-        output_filename = f'{self.city_name.replace(" ", "_")}_precipitation_data.nc'
+        output_filename = self.city_name.replace(" ", "_") + '_precipitation_data.nc'
         self.city_precip.to_netcdf(output_filename)
         
         # Save statistics
@@ -342,7 +342,8 @@ class PrecipitationAnalysis:
         }
         
         stats_df = pd.DataFrame([stats_dict])
-        stats_df.to_csv(f'{self.city_name.replace(" ", "_")}_stats.csv', index=False)
+        stats_df.to_csv(self.city_name.replace(" ", "_") + '_stats.csv', index=False)
+
     
     def run_analysis(self):
         """
