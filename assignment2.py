@@ -379,8 +379,4 @@ Data References:
 Hersbach, H., Bell, B., Berrisford, P., et al. (2020). The ERA5 global reanalysis. 
 Quarterly Journal of the Royal Meteorological Society, 146(730), 1999-2049.
 DOI: 10.1002/qj.3803
-
-ERA5 hourly data on single levels from 1940 to present. (2023). 
-Copernicus Climate Change Service (C3S) Climate Data Store (CDS). 
-DOI: 10.24381/cds.adbb2d47 
 """
